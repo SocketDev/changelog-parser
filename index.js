@@ -5,7 +5,7 @@ const removeMarkdown = require('remove-markdown')
 // patterns
 const semver = /\[?v?([\w\d.-]+\.[\w\d.-]+[a-zA-Z0-9])\]?/
 const date = /.*[ ](\d\d?\d?\d?[-/.]\d\d?[-/.]\d\d?\d?\d?).*/
-const subhead = /^###/
+const subhead = /^#+/
 const listitem = /^[*-]/
 
 const defaultOptions = { removeMarkdown: true }
@@ -116,14 +116,15 @@ function handleLine (options, line) {
   }
 
   // new version found!
-  if (line.match(/^##? ?[^#]/)) {
+  if (line.match(/^#+ ?[^#]/) && semver.exec(line)) {
+    // Remove the previous queued version
     if (this.current && this.current.title) pushCurrent(this)
 
     this.current = versionFactory()
 
-    if (semver.exec(line)) this.current.version = semver.exec(line)[1]
+    this.current.version = semver.exec(line)[1]
 
-    this.current.title = line.substring(2).trim()
+    this.current.title = line.substring(countLevel(line)).trim()
 
     if (this.current.title && date.exec(this.current.title)) this.current.date = date.exec(this.current.title)[1]
 
@@ -138,7 +139,7 @@ function handleLine (options, line) {
     // - 'handleize' subhead.
     // - add subhead to 'parsed' data if not already present.
     if (subhead.exec(line)) {
-      const key = line.replace('###', '').trim()
+      const key = line.substring(countLevel(line)).trim()
 
       if (!this.current.parsed[key]) {
         this.current.parsed[key] = []
@@ -183,6 +184,14 @@ function pushCurrent (data) {
 
   data.current.body = clean(data.current.body)
   data.log.versions.push(data.current)
+}
+
+function countLevel (str) {
+  if (!str) return 0
+
+  const match = /^#+/.exec(str)
+  if (!match) return 0
+  return match[0].length
 }
 
 function clean (str) {
